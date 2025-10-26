@@ -1,6 +1,6 @@
 # Nearest-route-algorithms (OSM) — Dijkstra i A*
 
-Projekt buduje grafy drogowe z danych OSM, tworzy strukturę półkrawędzi (Half-Edge) i uruchamia algorytmy najkrótszej ścieżki (Dijkstra oraz A*) dla dwóch profili ruchu: samochód (car) oraz pieszy/rower (bikeFoot).
+Projekt buduje grafy drogowe z danych OSM, tworzy strukturę półkrawędzi (Half-Edge) i uruchamia algorytmy najkrótszej ścieżki (Dijkstra oraz A*) dla dwóch profili ruchu: samochód (car) oraz pieszy/rower (bikeFoot). Pipeline generuje wyniki zarówno na grafie sąsiedztwa, jak i na strukturze półkrawędzi.
 
 ## Wymagania
 
@@ -11,7 +11,8 @@ Projekt buduje grafy drogowe z danych OSM, tworzy strukturę półkrawędzi (Hal
 ## Struktura katalogów
 
 - `a-Star/`
-	- `A-StarGraph.js` — implementacja algorytmu A* na grafie sąsiedztwa (lista krawędzi).
+	- `A-StarGraph.js` — A* na grafie sąsiedztwa (lista krawędzi).
+	- `A-StarHalfEdges.js` — A* na strukturze półkrawędzi.
 - `dijkstra/`
 	- `dijkstraGraph.js` — Dijkstra na grafie zbudowanym jako lista sąsiedztwa (nodes+edges).
 	- `dijkstraHalfEdge.js` — Dijkstra na strukturze półkrawędzi.
@@ -29,9 +30,12 @@ Projekt buduje grafy drogowe z danych OSM, tworzy strukturę półkrawędzi (Hal
 		- `halfEdges_car.json`, `halfEdges_bikeFoot.json` — półkrawędzie dla profili.
 	- `paths/`
 		- `dijkstra/`
-			- `dijkstraPathBikeFoot.txt`, `dijkstraPathCar.txt` — ścieżki z Dijkstry (lista współrzędnych).
+			- `dijkstraPathBikeFoot.txt`, `dijkstraPathCar.txt` — ścieżki z Dijkstry na grafie.
+			- `dijkstraHalfEdgePathBikeFoot.txt`, `dijkstraHalfEdgePathCar.txt` — ścieżki z Dijkstry na półkrawędziach.
 		- `A-Star/`
-			- `aStarPathBikeFoot.txt`, `aStarPathCar.txt` — ścieżki z A* (lista współrzędnych).
+			- `aStarPathBikeFoot.txt`, `aStarPathCar.txt` — ścieżki z A* na grafie.
+			- `aStarHalfEdgePathBikeFoot.txt`, `aStarHalfEdgePathCar.txt` — ścieżki z A* na półkrawędziach.
+	- `mainWorkflowResults.json` — czasy wykonania poszczególnych kroków pipeline’u.
 - `mainWorkflow.js` — skrypt orkiestrujący: buduje grafy, półkrawędzie i uruchamia algorytmy.
 
 ## Przepływ pracy (pipeline)
@@ -39,12 +43,13 @@ Projekt buduje grafy drogowe z danych OSM, tworzy strukturę półkrawędzi (Hal
 1. Wejście: `data/osm_wroclaw_roads_cliped.json` (GeoJSON/OSM, atrybuty m.in. `fclass`, `oneway`).
 2. `graph/createGraph.js` generuje grafy sąsiedztwa do `output/graphs/graph{Car,BikeFoot}.json`.
 3. `half-edge/createHalfEdges.js` generuje półkrawędzie do `output/halfEdges/halfEdges_{car,bikeFoot}.json`.
-4. Algorytmy:
-	 - `dijkstra/dijkstraGraph.js` — wyznacza najkrótsze trasy i zapisuje do `output/paths/dijkstra/`.
-	 - `dijkstra/dijkstraHalfEdge.js` — alternatywnie liczy ścieżkę po półkrawędziach.
-	 - (opcjonalnie) `a-Star/A-StarGraph.js` — A* po grafie sąsiedztwa, zapis do `output/paths/A-Star/`.
+4. Algorytmy (oba profile: car, bikeFoot):
+	- `dijkstra/dijkstraGraph.js` — Dijkstra na grafie sąsiedztwa → `output/paths/dijkstra/`.
+	- `dijkstra/dijkstraHalfEdge.js` — Dijkstra na półkrawędziach → `output/paths/dijkstra/`.
+	- `a-Star/A-StarGraph.js` — A* na grafie sąsiedztwa → `output/paths/A-Star/`.
+	- `a-Star/A-StarHalfEdges.js` — A* na półkrawędziach → `output/paths/A-Star/`.
 
-Całość uruchamia wygodnie `mainWorkflow.js` (patrz sekcja Jak uruchomić).
+Całość uruchamia wygodnie `mainWorkflow.js` (patrz sekcja Jak uruchomić). Na końcu zapisywany jest plik `output/mainWorkflowResults.json` z czasami poszczególnych kroków.
 
 ## Profile i filtrowanie dróg
 
@@ -91,8 +96,11 @@ Ten format jest używany przez `dijkstraHalfEdge.js`.
 	- Dla wierzchołka `u` iteruje po wszystkich półkrawędziach wychodzących z `u` i relaksuje do sąsiada wskazanego przez `siblingId` o koszcie `distanceToSibling`.
 	- `nextId` pozwala przechodzić cyklicznie po wszystkich półkrawędziach z tego samego wierzchołka.
 
-- `A-StarGraph.js` (opcjonalnie)
-	- Wersja A* na grafie sąsiedztwa (heurystyka zwykle odległość geodezyjna/Euclides).
+- `A-StarGraph.js`
+	- A* na grafie sąsiedztwa (heurystyka: odległość euklidesowa między węzłami).
+
+- `A-StarHalfEdges.js`
+	- A* na półkrawędziach. Dla bieżącego wierzchołka rozpatruje wszystkie wychodzące półkrawędzie, przejście do `siblingId` o koszcie `distanceToSibling`, z uwzględnieniem kierunkowości (`twoDirectional`, `from`/`to`).
 
 ## Jak uruchomić
 
@@ -108,6 +116,10 @@ To wykona kolejno:
 2) `half-edge/createHalfEdges.js`
 3) `dijkstra/dijkstraGraph.js`
 4) `dijkstra/dijkstraHalfEdge.js`
+5) `a-Star/A-StarGraph.js`
+6) `a-Star/A-StarHalfEdges.js`
+
+Na końcu zostanie zapisany raport z czasami do `output/mainWorkflowResults.json`.
 
 Uruchamianie poszczególnych kroków ręcznie:
 
@@ -116,6 +128,8 @@ node graph/createGraph.js
 node half-edge/createHalfEdges.js
 node dijkstra/dijkstraGraph.js
 node dijkstra/dijkstraHalfEdge.js
+node a-Star/A-StarGraph.js
+node a-Star/A-StarHalfEdges.js
 ```
 
 Wyniki znajdziesz w `output/graphs/`, `output/halfEdges/` oraz `output/paths/`.
@@ -125,6 +139,17 @@ Wyniki znajdziesz w `output/graphs/`, `output/halfEdges/` oraz `output/paths/`.
 - Pliki OSM/GeoJSON mogą być duże — upewnij się, że masz wystarczająco pamięci i miejsca na dysku.
 - Ścieżki zawierają spacje (OneDrive/Polskie znaki) — Node radzi sobie, ale jeśli używasz innych narzędzi, pamiętaj o cudzysłowach.
 - Jeśli zmienisz strukturę pól w JSON-ach, zaktualizuj odpowiednie algorytmy (Dijkstra/A*), które te pola czytają.
+
+## Zmiana punktów startu i mety
+
+Aktualne współrzędne startu/końca są wpisane bezpośrednio w plikach algorytmów:
+
+- `dijkstra/dijkstraGraph.js`
+- `dijkstra/dijkstraHalfEdge.js`
+- `a-Star/A-StarGraph.js`
+- `a-Star/A-StarHalfEdges.js`
+
+W każdym pliku znajdziesz dwie pary wywołań (dla `bikeFoot` i `car`). Zmień tablice `[lon, lat]` w argumentach funkcji, np. `aStar([lonStart, latStart], [lonEnd, latEnd], graph)`.
 
 ## Rozszerzenia i pomysły
 
