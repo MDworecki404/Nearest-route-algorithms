@@ -1,11 +1,11 @@
 [
   {
     "script": "graph/createGraph.js",
-    "duration": 162
+    "duration": 163
   },
   {
     "script": "half-edge/createHalfEdges.js",
-    "duration": 280
+    "duration": 247
   },
   {
     "script": "dijkstra/dijkstraGraph.js",
@@ -13,14 +13,14 @@
   },
   {
     "script": "dijkstra/dijkstraHalfEdge.js",
-    "duration": 423
+    "duration": 469
   },
   {
     "script": "a-star/A-StarGraph.js",
-    "duration": 150
+    "duration": 159
   },
   {
     "script": "a-star/A-StarHalfEdges.js",
-    "duration": 310
+    "duration": 305
   }
 ]
