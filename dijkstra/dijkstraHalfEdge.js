@@ -2,43 +2,28 @@ const halfEdgeCar = require("../output/halfEdges/halfEdges_car.json");
 const halfEdgeBikeFoot = require("../output/halfEdges/halfEdges_bikeFoot.json");
 const fs = require("fs");
 
-const Qset = (graph) => {
-    let Q = new Map();
-    graph.forEach((node) => {
-        Q.set(node.V.join(","), {
-            dist: Infinity,
-            prev: null,
-            edge: {
-                ...node,
-            },
-        });
-    });
-    return Q;
-};
-
-const networkMap = (graph) => {
-    let map = new Map();
-    graph.forEach((node) => {
-        map.set(node.id, {
-            ...node,
-        });
-    });
-    return map;
-};
-
 const dijkstra = (startNode, endNode, graph) => {
+    const valid = graph.filter(
+        (he) =>
+            he &&
+            he.id != null &&
+            Array.isArray(he.V) &&
+            he.V.length === 2 &&
+            he.siblingId != null
+    );
+
     const halfEdgeMap = new Map();
-    graph.forEach((he) => halfEdgeMap.set(he.id, he));
+    valid.forEach((he) => halfEdgeMap.set(he.id, he));
 
     const vertexToHalfEdges = new Map();
-    graph.forEach((he) => {
+    valid.forEach((he) => {
         const key = he.V.join(",");
         if (!vertexToHalfEdges.has(key)) vertexToHalfEdges.set(key, []);
         vertexToHalfEdges.get(key).push(he);
     });
 
     const Q = new Map();
-    graph.forEach((he) => {
+    valid.forEach((he) => {
         const key = he.V.join(",");
         if (!Q.has(key)) {
             Q.set(key, { dist: Infinity, prev: null });
@@ -67,7 +52,18 @@ const dijkstra = (startNode, endNode, graph) => {
             if (!neighbor) continue;
             const neighborKey = neighbor.V.join(",");
             if (!Q.has(neighborKey)) continue;
-            const alt = uDist + (he.distanceToSibling || 1);
+
+            if (he.twoDirectional !== true) {
+                if (!(he.from === he.id && he.to === neighbor.id)) {
+                    continue;
+                }
+            }
+
+            const weight =
+                typeof he.distanceToSibling === "number"
+                    ? he.distanceToSibling
+                    : 1;
+            const alt = uDist + weight;
             if (alt < Q.get(neighborKey).dist) {
                 Q.get(neighborKey).dist = alt;
                 Q.get(neighborKey).prev = uKey;

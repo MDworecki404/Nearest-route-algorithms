@@ -105,10 +105,11 @@ const createHalfEdges = (network, type) => {
 createHalfEdges(network, "car");
 
 const serializeHalfEdges = (halfEdges) => {
-    return halfEdges.map((he) => {
+    const serialized = [];
+    halfEdges.forEach((he) => {
         const nextId = he.N ? he.N.id : null;
         if (he.oneway === "F" && he.id < he.S.id) {
-            return {
+            serialized.push({
                 id: he.id,
                 halfEdgeId: `${he.id},${he.S.id}`,
                 V: he.V,
@@ -123,9 +124,9 @@ const serializeHalfEdges = (halfEdges) => {
                 twoDirectional: false,
                 from: he.id,
                 to: he.S.id,
-            };
+            });
         } else if (he.oneway === "F" && he.id > he.S.id) {
-            return {
+            serialized.push({
                 id: he.id,
                 halfEdgeId: `${he.S.id},${he.id}`,
                 V: he.V,
@@ -140,9 +141,10 @@ const serializeHalfEdges = (halfEdges) => {
                 twoDirectional: false,
                 from: he.S.id,
                 to: he.id,
-            };
+            });
         } else if (he.oneway === "B") {
-            return {
+            // Dodaj dwa half-edge: tam i z powrotem
+            serialized.push({
                 id: he.id,
                 halfEdgeId: `${he.id},${he.S.id}`,
                 V: he.V,
@@ -155,9 +157,29 @@ const serializeHalfEdges = (halfEdges) => {
                       )
                     : null,
                 twoDirectional: true,
-            };
+                from: he.id,
+                to: he.S.id,
+            });
+            serialized.push({
+                id: he.S.id,
+                halfEdgeId: `${he.S.id},${he.id}`,
+                V: he.S.V,
+                siblingId: he.id,
+                nextId: he.S.N ? he.S.N.id : null,
+                distanceToSibling: he.S
+                    ? Math.sqrt(
+                          Math.pow(he.S.V[0] - he.V[0], 2) +
+                              Math.pow(he.S.V[1] - he.V[1], 2)
+                      )
+                    : null,
+                twoDirectional: true,
+                from: he.S.id,
+                to: he.id,
+            });
         }
+        // Inne wartości oneway niż 'F'/'B' są ignorowane
     });
+    return serialized;
 };
 
 const halfEdgeWorkFlow = (network, type) => {
