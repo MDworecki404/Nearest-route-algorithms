@@ -1,6 +1,8 @@
 const network = require("../data/osm_wroclaw_roads_cliped.json");
 const fs = require("fs");
 
+const dateNow = new Date().getTime();
+
 let allowedFclass = new Map();
 allowedFclass.set("car", [
     "motorway",
@@ -104,11 +106,14 @@ createHalfEdges(network, "car");
 
 const serializeHalfEdges = (halfEdges) => {
     return halfEdges.map((he) => {
+        const nextId = he.N ? he.N.id : null;
         if (he.oneway === "F" && he.id < he.S.id) {
             return {
                 id: he.id,
+                halfEdgeId: `${he.id},${he.S.id}`,
                 V: he.V,
                 siblingId: he.S ? he.S.id : null,
+                nextId: nextId,
                 distanceToSibling: he.S
                     ? Math.sqrt(
                           Math.pow(he.V[0] - he.S.V[0], 2) +
@@ -122,8 +127,10 @@ const serializeHalfEdges = (halfEdges) => {
         } else if (he.oneway === "F" && he.id > he.S.id) {
             return {
                 id: he.id,
+                halfEdgeId: `${he.S.id},${he.id}`,
                 V: he.V,
                 siblingId: he.S ? he.S.id : null,
+                nextId: nextId,
                 distanceToSibling: he.S
                     ? Math.sqrt(
                           Math.pow(he.V[0] - he.S.V[0], 2) +
@@ -137,8 +144,10 @@ const serializeHalfEdges = (halfEdges) => {
         } else if (he.oneway === "B") {
             return {
                 id: he.id,
+                halfEdgeId: `${he.id},${he.S.id}`,
                 V: he.V,
                 siblingId: he.S ? he.S.id : null,
+                nextId: nextId,
                 distanceToSibling: he.S
                     ? Math.sqrt(
                           Math.pow(he.V[0] - he.S.V[0], 2) +
@@ -151,6 +160,19 @@ const serializeHalfEdges = (halfEdges) => {
     });
 };
 
-const serializedHalfEdges = serializeHalfEdges(halfEdges);
+const halfEdgeWorkFlow = (network, type) => {
+    createHalfEdges(network, type);
+    const serialized = serializeHalfEdges(halfEdges);
+    fs.writeFileSync(
+        `output/halfEdges/halfEdges_${type}.json`,
+        JSON.stringify(serialized, null, 2)
+    );
+    halfEdges = [];
+    vertexToHalfEdges = new Map();
+    halfEdgeIdCounter = 0;
+};
 
-console.log(serializedHalfEdges);
+halfEdgeWorkFlow(network, "car");
+halfEdgeWorkFlow(network, "bikeFoot");
+
+const dateEnd = new Date().getTime();
