@@ -1,26 +1,22 @@
 [
   {
     "script": "graph/createGraph.js",
-    "duration": 163
-  },
-  {
-    "script": "half-edge/createHalfEdges.js",
-    "duration": 247
-  },
-  {
-    "script": "dijkstra/dijkstraGraph.js",
-    "duration": 702
-  },
-  {
-    "script": "dijkstra/dijkstraHalfEdge.js",
-    "duration": 469
-  },
-  {
-    "script": "a-star/A-StarGraph.js",
     "duration": 159
   },
   {
-    "script": "a-star/A-StarHalfEdges.js",
-    "duration": 305
+    "script": "half-edge/createHalfEdges.js",
+    "duration": 277
+  },
+  {
+    "script": "dijkstra/dijkstraGraph.js",
+    "duration": 684
+  },
+  {
+    "script": "dijkstra/dijkstraHalfEdge.js",
+    "duration": 18077
+  },
+  {
+    "script": "a-star/A-StarGraph.js",
+    "duration": 167
   }
 ]

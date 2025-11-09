@@ -1,8 +1,6 @@
 const network = require("../data/osm_wroclaw_roads_cliped.json");
 const fs = require("fs");
 
-const dateNow = new Date().getTime();
-
 let allowedFclass = new Map();
 allowedFclass.set("car", [
     "motorway",
@@ -32,169 +30,145 @@ allowedFclass.set("bikeFoot", [
     "bridleway",
 ]);
 
-let halfEdgeIdCounter = 0;
-
 class HalfEdge {
-    constructor(V, oneway) {
-        this.id = halfEdgeIdCounter++;
+    constructor(id, V, oneway) {
+        this.id = id;
         this.N = this;
         this.S = null;
         this.V = V;
-        this.oneway = oneway;
+        this.attributes = {
+            oneway: oneway,
+        };
     }
 }
 
-const makeEdge = (v1, v2, oneway) => {
-    const he1 = new HalfEdge(v1, oneway);
-    const he2 = new HalfEdge(v2, oneway);
+function makeEdge(v1, v2, oneway, azimuth) {
+    const he1 = new HalfEdge(crypto.randomUUID(), v1, oneway);
+    const he2 = new HalfEdge(crypto.randomUUID(), v2, oneway);
     he1.S = he2;
     he2.S = he1;
-    return he1;
-};
+    he1.attributes.azimuth = azimuth;
+    he2.attributes.azimuth = (azimuth + 180) % 360;
+    return [he1, he2];
+}
 
-const splice = (he1, he2) => {
-    let temp = he1.N;
-    he1.N = he2.N;
-    he2.N = temp;
-};
+const halfEdges = [];
 
-let halfEdges = [];
-let vertexToHalfEdges = new Map();
+function calculateAzimuth(v1, v2) {
+    function toRadians(degress) {
+        return degress * (Math.PI / 180);
+    }
 
-const createHalfEdges = (network, type) => {
+    function toDegrees(radians) {
+        return radians * (180 / Math.PI);
+    }
+
+    const lat1 = toRadians(v1[1]);
+    const lat2 = toRadians(v2[1]);
+    const deltaLon = toRadians(v2[0] - v1[0]);
+
+    const y = Math.sin(deltaLon) * Math.cos(lat2);
+    const x =
+        Math.cos(lat1) * Math.sin(lat2) -
+        Math.sin(lat1) * Math.cos(lat2) * Math.cos(deltaLon);
+    const bearing = Math.atan2(y, x);
+    return (toDegrees(bearing) + 360) % 360;
+}
+
+function createHalfEdges(network, type) {
     network.features.forEach((feature) => {
-        if (!allowedFclass.get(type).includes(feature.properties.fclass)) {
+        if (
+            type &&
+            !allowedFclass.get(type).includes(feature.properties.fclass)
+        ) {
             return;
         }
         const coords = feature.geometry.coordinates.flat();
-
         for (let i = 0; i < coords.length - 1; i++) {
-            const he = makeEdge(
-                coords[i],
-                coords[i + 1],
-                feature.properties.oneway
-            );
-            halfEdges.push(he);
-            halfEdges.push(he.S);
+            const v1 = coords[i];
+            const v2 = coords[i + 1];
+            const azimuth = calculateAzimuth(v1, v2);
+            const [he1, he2] = makeEdge(v1, v2, feature.properties.oneway, azimuth);
 
-            const key1 = coords[i].join(",");
-            const key2 = coords[i + 1].join(",");
-
-            if (!vertexToHalfEdges.has(key1)) {
-                vertexToHalfEdges.set(key1, []);
+            if (feature.properties.oneway === "B") {
+                halfEdges.push(he1, he2);
+            } else if (feature.properties.oneway === "F") {
+                halfEdges.push(he1);
             }
-            if (!vertexToHalfEdges.has(key2)) {
-                vertexToHalfEdges.set(key2, []);
-            }
-
-            vertexToHalfEdges.get(key1).push(he);
-            vertexToHalfEdges.get(key2).push(he.S);
         }
     });
-    vertexToHalfEdges.forEach((edges, vertex) => {
+}
+
+const serializeHalfEdges = () => {
+    const serialized = halfEdges.map((he) => ({
+        id: he.id,
+        V: he.V,
+        S: he.S.V,
+        attributes: {
+            siblingID: he.S.id,
+            oneway: he.attributes.oneway,
+            azimuth: he.attributes.azimuth,
+            distance: Math.sqrt(
+                Math.pow(he.S.V[0] - he.V[0], 2) + Math.pow(he.S.V[1] - he.V[1], 2)
+            )
+        },
+    }));
+
+    const vertexMap = new Map();
+    serialized.forEach((he) => {
+        const key = he.V.join(",");
+        if (!vertexMap.has(key)) {
+            vertexMap.set(key, []);
+        }
+        vertexMap.get(key).push(he);
+    });
+
+    const serializedWithNext = [];
+    let toCheck = vertexMap.size;
+
+    vertexMap.forEach((edges, v) => {
+        toCheck--;
+        if (toCheck % 1000 === 0) {
+            console.log(`Processing vertices, ${toCheck} remaining`);
+        }
+
+        edges.sort((a, b) => b.attributes.azimuth - a.attributes.azimuth);
+
         if (edges.length > 1) {
             for (let i = 0; i < edges.length; i++) {
                 const current = edges[i];
                 const next = edges[(i + 1) % edges.length];
-                splice(current, next);
+                current.N = next.id;
+                serializedWithNext.push(current);
             }
+        } else {
+            edges[0].N = edges[0].id;
+            serializedWithNext.push(edges[0]);
         }
     });
+
+    return serializedWithNext;
 };
 
-createHalfEdges(network, "car");
-
-const serializeHalfEdges = (halfEdges) => {
-    const serialized = [];
-    halfEdges.forEach((he) => {
-        const nextId = he.N ? he.N.id : null;
-        if (he.oneway === "F" && he.id < he.S.id) {
-            serialized.push({
-                id: he.id,
-                halfEdgeId: `${he.id},${he.S.id}`,
-                V: he.V,
-                siblingId: he.S ? he.S.id : null,
-                nextId: nextId,
-                distanceToSibling: he.S
-                    ? Math.sqrt(
-                          Math.pow(he.V[0] - he.S.V[0], 2) +
-                              Math.pow(he.V[1] - he.S.V[1], 2)
-                      )
-                    : null,
-                twoDirectional: false,
-                from: he.id,
-                to: he.S.id,
-            });
-        } else if (he.oneway === "F" && he.id > he.S.id) {
-            serialized.push({
-                id: he.id,
-                halfEdgeId: `${he.S.id},${he.id}`,
-                V: he.V,
-                siblingId: he.S ? he.S.id : null,
-                nextId: nextId,
-                distanceToSibling: he.S
-                    ? Math.sqrt(
-                          Math.pow(he.V[0] - he.S.V[0], 2) +
-                              Math.pow(he.V[1] - he.S.V[1], 2)
-                      )
-                    : null,
-                twoDirectional: false,
-                from: he.S.id,
-                to: he.id,
-            });
-        } else if (he.oneway === "B") {
-            // Dodaj dwa half-edge: tam i z powrotem
-            serialized.push({
-                id: he.id,
-                halfEdgeId: `${he.id},${he.S.id}`,
-                V: he.V,
-                siblingId: he.S ? he.S.id : null,
-                nextId: nextId,
-                distanceToSibling: he.S
-                    ? Math.sqrt(
-                          Math.pow(he.V[0] - he.S.V[0], 2) +
-                              Math.pow(he.V[1] - he.S.V[1], 2)
-                      )
-                    : null,
-                twoDirectional: true,
-                from: he.id,
-                to: he.S.id,
-            });
-            serialized.push({
-                id: he.S.id,
-                halfEdgeId: `${he.S.id},${he.id}`,
-                V: he.S.V,
-                siblingId: he.id,
-                nextId: he.S.N ? he.S.N.id : null,
-                distanceToSibling: he.S
-                    ? Math.sqrt(
-                          Math.pow(he.S.V[0] - he.V[0], 2) +
-                              Math.pow(he.S.V[1] - he.V[1], 2)
-                      )
-                    : null,
-                twoDirectional: true,
-                from: he.S.id,
-                to: he.id,
-            });
-        }
-        // Inne wartości oneway niż 'F'/'B' są ignorowane
-    });
-    return serialized;
-};
-
-const halfEdgeWorkFlow = (network, type) => {
-    createHalfEdges(network, type);
-    const serialized = serializeHalfEdges(halfEdges);
+const carHalfEdgeWorkflow = () => {
+    createHalfEdges(network, "car");
+    const output = serializeHalfEdges();
     fs.writeFileSync(
-        `output/halfEdges/halfEdges_${type}.json`,
-        JSON.stringify(serialized, null, 2)
+        "output/halfEdges/halfEdges_car.json",
+        JSON.stringify(output, null, 2)
     );
-    halfEdges = [];
-    vertexToHalfEdges = new Map();
-    halfEdgeIdCounter = 0;
+    halfEdges.length = 0;
 };
 
-halfEdgeWorkFlow(network, "car");
-halfEdgeWorkFlow(network, "bikeFoot");
+const bikeFootHalfEdgeWorkflow = () => {
+    createHalfEdges(network, "bikeFoot");
+    const output = serializeHalfEdges();
+    fs.writeFileSync(
+        "output/halfEdges/halfEdges_bikeFoot.json",
+        JSON.stringify(output, null, 2)
+    );
+    halfEdges.length = 0;
+};
 
-const dateEnd = new Date().getTime();
+carHalfEdgeWorkflow();
+bikeFootHalfEdgeWorkflow();

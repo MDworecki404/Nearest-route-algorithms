@@ -2,89 +2,85 @@ const halfEdgeCar = require("../output/halfEdges/halfEdges_car.json");
 const halfEdgeBikeFoot = require("../output/halfEdges/halfEdges_bikeFoot.json");
 const fs = require("fs");
 
+const prepareQ = (graph) => {
+    const Q = new Map();
+    graph.forEach((he) => {
+        Q.set(he.id, {
+            ...he,
+            dist: Infinity,
+            prev: null,
+        });
+    });
+    return Q;
+};
+
 const dijkstra = (startNode, endNode, graph) => {
-    const valid = graph.filter(
-        (he) =>
-            he &&
-            he.id != null &&
-            Array.isArray(he.V) &&
-            he.V.length === 2 &&
-            he.siblingId != null
+    const Q = prepareQ(graph);
+    const S = new Set();
+
+    const startHes = Array.from(Q.values()).filter(
+        (he) => he.V[0] === startNode[0] && he.V[1] === startNode[1]
     );
 
-    const halfEdgeMap = new Map();
-    valid.forEach((he) => halfEdgeMap.set(he.id, he));
-
-    const vertexToHalfEdges = new Map();
-    valid.forEach((he) => {
-        const key = he.V.join(",");
-        if (!vertexToHalfEdges.has(key)) vertexToHalfEdges.set(key, []);
-        vertexToHalfEdges.get(key).push(he);
-    });
-
-    const Q = new Map();
-    valid.forEach((he) => {
-        const key = he.V.join(",");
-        if (!Q.has(key)) {
-            Q.set(key, { dist: Infinity, prev: null });
-        }
-    });
-
-    const S = new Map();
-    const startKey = startNode.join(",");
-    const endKey = endNode.join(",");
-    Q.get(startKey).dist = 0;
-
-    while (Q.size > 0) {
-        let uKey = null;
-        let uDist = Infinity;
-        Q.forEach((value, key) => {
-            if (value.dist < uDist) {
-                uDist = value.dist;
-                uKey = key;
-            }
-        });
-        if (uKey === null || uDist === Infinity) break;
-
-        const outgoingHalfEdges = vertexToHalfEdges.get(uKey) || [];
-        for (const he of outgoingHalfEdges) {
-            const neighbor = halfEdgeMap.get(he.siblingId);
-            if (!neighbor) continue;
-            const neighborKey = neighbor.V.join(",");
-            if (!Q.has(neighborKey)) continue;
-
-            if (he.twoDirectional !== true) {
-                if (!(he.from === he.id && he.to === neighbor.id)) {
-                    continue;
-                }
-            }
-
-            const weight =
-                typeof he.distanceToSibling === "number"
-                    ? he.distanceToSibling
-                    : 1;
-            const alt = uDist + weight;
-            if (alt < Q.get(neighborKey).dist) {
-                Q.get(neighborKey).dist = alt;
-                Q.get(neighborKey).prev = uKey;
-            }
-        }
-        S.set(uKey, Q.get(uKey));
-        Q.delete(uKey);
-        if (uKey === endKey) break;
-    }
-
-    let path = [];
-    let currentKey = endKey;
-    while (currentKey && S.has(currentKey)) {
-        path.unshift(currentKey.split(",").map(Number));
-        currentKey = S.get(currentKey).prev;
-    }
-    if (path.length === 0 || path[0].join(",") !== startKey) {
+    if (startHes.length === 0) {
+        console.error("Brak half-edge zaczynających w startNode!");
         return [];
     }
-    path.unshift(startNode);
-    return path;
+
+    startHes.forEach((he) => {
+        Q.get(he.id).dist = 0;
+    });
+
+    while (true) {
+        let u = null;
+        let minDist = Infinity;
+
+        for (const he of Q.values()) {
+            if (!S.has(he.id) && he.dist < minDist) {
+                minDist = he.dist;
+                u = he;
+            }
+        }
+
+        if (!u) break;
+
+        S.add(u.id);
+
+        const sibling = Q.get(u.attributes.siblingID);
+        if (!sibling) continue;
+
+        let nxt = sibling;
+
+        while (true) {
+            const alt = u.dist + nxt.attributes.distance;
+            if (alt < nxt.dist) {
+                nxt.dist = alt;
+                nxt.prev = u.id;
+            }
+            if (nxt.N === sibling.id) break;
+            nxt = Q.get(nxt.N);
+        }
+    }
+    let bestEnd = null;
+    for (const he of Q.values()) {
+        if (he.S[0] === endNode[0] && he.S[1] === endNode[1]) {
+            if (!bestEnd || he.dist < bestEnd.dist) bestEnd = he;
+        }
+    }
+
+    if (!bestEnd) {
+        console.log("Brak ścieżki");
+        return [];
+    }
+
+    const path = [];
+    let cur = bestEnd;
+    while (cur) {
+        path.push(cur.S);
+        cur = Q.get(cur.prev);
+    }
+    path.push(startNode);
+    return path.reverse();
 };
 
 const pathBikeFoot = dijkstra(

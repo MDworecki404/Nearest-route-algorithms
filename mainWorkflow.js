@@ -21,7 +21,7 @@ runScript("half-edge/createHalfEdges.js");
 runScript("dijkstra/dijkstraGraph.js");
 runScript("dijkstra/dijkstraHalfEdge.js");
 runScript("a-star/A-StarGraph.js");
-runScript("a-star/A-StarHalfEdges.js");
+//runScript("a-star/A-StarHalfEdges.js");
 
 fs.writeFileSync(
     "output/mainWorkflowResults.json",
