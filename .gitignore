@@ -2,8 +2,11 @@
 node_modules/
 
 # Struktury danych - duże pliki JSON
+data/
 output/graphs/
 output/halfEdges/
+output/paths/
+output/*.json
 
 # Pliki tymczasowe
 *.tmp
