@@ -89,24 +89,24 @@ const aStar = (startNode, endNode, halfEdges) => {
     }
 };
 
-const pathBikeFoot = aStar(
-    [17.054784, 51.1091578],
-    [17.0525718, 51.1109826],
-    halfEdgeBikeFoot
-);
+//const pathBikeFoot = aStar(
+//    [17.054784, 51.1091578],
+//    [17.0525718, 51.1109826],
+//    halfEdgeBikeFoot
+//);
 const pathCar = aStar(
     [17.0537461, 51.1097778],
     [17.0704743, 51.1129139],
     halfEdgeCar
 );
 
-const pathTextBikeFoot = pathBikeFoot
-    .map(([lon, lat]) => `${lon} ${lat}`)
-    .join("\n");
-fs.writeFileSync(
-    "output/paths/A-Star/aStarHalfEdgePathBikeFoot.txt",
-    pathTextBikeFoot
-);
+//const pathTextBikeFoot = pathBikeFoot
+//    .map(([lon, lat]) => `${lon} ${lat}`)
+//    .join("\n");
+//fs.writeFileSync(
+//    "output/paths/A-Star/aStarHalfEdgePathBikeFoot.txt",
+//    pathTextBikeFoot
+//);
 
 const pathTextCar = pathCar.map(([lon, lat]) => `${lon} ${lat}`).join("\n");
 fs.writeFileSync("output/paths/A-Star/aStarHalfEdgePathCar.txt", pathTextCar);

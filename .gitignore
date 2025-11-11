@@ -2,7 +2,6 @@
 node_modules/
 
 # Struktury danych - duże pliki JSON
-data/*
 !data/.gitkeep
 
 output/graphs/*
@@ -15,8 +14,6 @@ output/paths/**/*
 !output/paths/.gitkeep
 !output/paths/dijkstra/.gitkeep
 !output/paths/A-Star/.gitkeep
-
-output/*.json
 
 # Pliki tymczasowe
 *.tmp
