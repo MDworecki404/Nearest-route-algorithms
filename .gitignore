@@ -1,0 +1,10 @@
+# Node modules
+node_modules/
+
+# Struktury danych - duże pliki JSON
+output/graphs/
+output/halfEdges/
+
+# Pliki tymczasowe
+*.tmp
+*.log
