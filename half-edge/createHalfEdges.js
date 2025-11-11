@@ -1,4 +1,4 @@
-const network = require("../data/osm_wroclaw_roads_cliped.json");
+const network = require("../data/osm_wroclaw_roads.json");
 const fs = require("fs");
 
 let allowedFclass = new Map();

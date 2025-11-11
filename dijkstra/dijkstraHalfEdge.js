@@ -59,6 +59,7 @@ const dijkstra = (startNode, endNode, graph) => {
             }
             if (nxt.N === sibling.id) break;
             nxt = Q.get(nxt.N);
+            if (!nxt) break;
         }
     }
     let bestEnd = null;
