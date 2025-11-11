@@ -60,29 +60,79 @@ W `createHalfEdges.js` zdefiniowane są listy dozwolonych klas dróg (`fclass`) 
 
 W atrybucie `oneway` rozróżniane są drogi jednokierunkowe (`F`) i dwukierunkowe (`B`).
 
-## Format wyjściowy grafów (graphs/*.json)
+## Struktury danych
 
-Każdy wierzchołek ma postać:
+### Graf sąsiedztwa (graphs/*.json)
 
-- `node`: `[lon, lat]`
-- `edges`: lista krawędzi do sąsiadów, każda jako `[neighborLon, neighborLat, distance]`
+Format używany przez `dijkstraGraph.js` i `A-StarGraph.js`.
 
-Ten format jest używany przez `dijkstraGraph.js` i `A-StarGraph.js`.
+Struktura: tablica obiektów reprezentujących węzły grafu.
 
-## Format wyjściowy półkrawędzi (halfEdges/*.json)
+**Przykład węzła:**
+```json
+{
+  "node": [17.054784, 51.1091578],
+  "oneway": false,
+  "edges": [
+    [17.0549123, 51.1092456, 0.00018234],
+    [17.0546712, 51.1090123, 0.00015678]
+  ]
+}
+```
 
-Każdy element reprezentuje pojedynczą półkrawędź:
+**Pola:**
+- `node`: `[lon, lat]` — współrzędne węzła
+- `oneway`: `boolean` — czy węzeł jest częścią drogi jednokierunkowej
+- `edges`: tablica krawędzi wychodzących, każda jako `[neighborLon, neighborLat, distance]`
+  - `neighborLon`, `neighborLat` — współrzędne węzła docelowego
+  - `distance` — waga krawędzi (odległość euklidesowa)
 
-- `id`: unikalny identyfikator półkrawędzi.
-- `halfEdgeId`: para identyfikatorów półkrawędzi w jednej krawędzi (np. "12,13").
-- `V`: `[lon, lat]` — wierzchołek początkowy tej półkrawędzi.
-- `siblingId`: `id` półkrawędzi bliźniaczej (prowadzi do wierzchołka docelowego).
-- `nextId`: `id` następnej półkrawędzi wychodzącej z tego samego wierzchołka (cykliczna lista).
-- `distanceToSibling`: waga krawędzi (Euklides od `V` do `sibling.V`).
-- `twoDirectional`: `true` dla dróg dwukierunkowych (B), `false` dla jednokierunkowych (F).
-- `from`, `to` (tylko gdy `oneway === "F"`): porządek pary id w krawędzi jednokierunkowej.
+**Obsługa kierunkowości:**
+- `oneway === "F"` (Forward): krawędź tylko from → to
+- `oneway === "B"` (Both): krawędzie w obu kierunkach (from → to i to → from)
 
-Ten format jest używany przez `dijkstraHalfEdge.js`.
+### Struktura półkrawędzi (halfEdges/*.json)
+
+Format używany przez `dijkstraHalfEdge.js` i `A-StarHalfEdges.js`.
+
+Struktura: tablica półkrawędzi (half-edges), gdzie każda krawędź grafu składa się z dwóch półkrawędzi skierowanych w przeciwnych kierunkach.
+
+**Przykład półkrawędzi:**
+```json
+{
+  "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "V": [17.054784, 51.1091578],
+  "S": [17.0549123, 51.1092456],
+  "N": "f9e8d7c6-b5a4-3210-fedc-ba0987654321",
+  "attributes": {
+    "siblingID": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+    "oneway": "B",
+    "azimuth": 45.7,
+    "distance": 0.00018234
+  }
+}
+```
+
+**Pola:**
+- `id`: unikalny UUID półkrawędzi
+- `V`: `[lon, lat]` — współrzędne wierzchołka początkowego (Vertex)
+- `S`: `[lon, lat]` — współrzędne wierzchołka końcowego (Sibling vertex)
+- `N`: `id` następnej półkrawędzi wychodzącego z tego samego wierzchołka `V` (Next)
+  - Tworzy cykliczną listę wszystkich półkrawędzi wychodzących z `V`
+  - Sortowane według azymutu (kąta) malejąco
+  - Jeśli tylko jedna półkrawędź z `V`, to `N` wskazuje na samą siebie
+
+**Atrybuty:**
+- `siblingID`: UUID półkrawędzi bliźniaczej (prowadzi w przeciwnym kierunku: S → V)
+- `oneway`: `"F"` (Forward) lub `"B"` (Both directions)
+- `azimuth`: kąt azymutalny w stopniach (0-360°) od `V` do `S`
+- `distance`: waga krawędzi (odległość euklidesowa między `V` i `S`)
+
+**Właściwości struktury:**
+- Każda krawędź dwukierunkowa (`oneway === "B"`) generuje DWE półkrawędzie (he1: V→S, he2: S→V)
+- Krawędź jednokierunkowa (`oneway === "F"`) generuje JEDNĄ półkrawędź (tylko V→S)
+- Cykliczna lista `N` umożliwia iterację po wszystkich półkrawędziach wychodzących z danego wierzchołka
+- Azymut pozwala na nawigację topologiczną (np. skręt w lewo/prawo)
 
 ## Algorytmy
 
