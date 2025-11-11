@@ -16,7 +16,7 @@ const prepareQ = (graph) => {
 
 const dijkstra = (startNode, endNode, graph) => {
     const Q = prepareQ(graph);
-    const S = new Set();
+    const S = new Map();
 
     const startHes = Array.from(Q.values()).filter(
         (he) => he.V[0] === startNode[0] && he.V[1] === startNode[1]
@@ -36,30 +36,38 @@ const dijkstra = (startNode, endNode, graph) => {
         let minDist = Infinity;
 
         for (const he of Q.values()) {
-            if (!S.has(he.id) && he.dist < minDist) {
+            if (he.dist < minDist) {
                 minDist = he.dist;
                 u = he;
             }
         }
 
-        if (!u) break;
+        if (!u || u.dist === Infinity) break;
 
-        S.add(u.id);
+        if (u.V[0] === endNode[0] && u.V[1] === endNode[1]) {
+            S.set(u.id, u);
+            break;
+        }
 
-        const sibling = Q.get(u.attributes.siblingID);
+        S.set(u.id, u);
+        Q.delete(u.id);
+
+        const sibling = Q.get(u.attributes.siblingID) || S.get(u.attributes.siblingID);
         if (!sibling) continue;
 
-        let nxt = sibling;
+        let nxt = Q.get(sibling.id) || S.get(sibling.id);
+        if (!nxt) nxt = sibling;
 
         while (true) {
+            if (!nxt || S.has(nxt.id)) break;
+
             const alt = u.dist + nxt.attributes.distance;
             if (alt < nxt.dist) {
                 nxt.dist = alt;
                 nxt.prev = u.id;
             }
             if (nxt.N === sibling.id) break;
-            nxt = Q.get(nxt.N);
-            if (!nxt) break;
+            nxt = Q.get(nxt.N) || S.get(nxt.N);
         }
     }
     let bestEnd = null;
