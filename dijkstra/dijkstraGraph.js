@@ -35,19 +35,29 @@ const dijkstra = (startNode, endNode, graph) => {
             break;
         }
 
-        Q.get(uKey).edges.forEach((edge) => {
-            const neighborKey = Q.get([edge[0], edge[1]].join(","));
+        const uNode = Q.get(uKey);
+
+        const uCoords = uKey.split(",").map(Number);
+        if (uCoords[0] === endNode[0] && uCoords[1] === endNode[1]) {
+            S.set(uKey, uNode);
+            break;
+        }
+
+        S.set(uKey, uNode);
+        Q.delete(uKey);
+
+        uNode.edges.forEach((edge) => {
+            const neighborKey = [edge[0], edge[1]].join(",");
+            const neighbor = Q.get(neighborKey);
             const neighborDist = edge[2];
-            if (neighborKey) {
-                if (uDist + neighborDist < neighborKey.dist) {
-                    neighborKey.dist = uDist + neighborDist;
-                    neighborKey.prev = uKey;
+            if (neighbor) {
+                const alt = uDist + neighborDist;
+                if (alt < neighbor.dist) {
+                    neighbor.dist = alt;
+                    neighbor.prev = uKey;
                 }
             }
         });
-
-        S.set(uKey, Q.get(uKey));
-        Q.delete(uKey);
     }
 
     let path = [];
