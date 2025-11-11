@@ -31,7 +31,7 @@ const dijkstra = (startNode, endNode, graph) => {
         Q.get(he.id).dist = 0;
     });
 
-    while (true) {
+    while (S.size < Q.size) {
         let u = null;
         let minDist = Infinity;
 
@@ -75,6 +75,7 @@ const dijkstra = (startNode, endNode, graph) => {
 
     const path = [];
     let cur = bestEnd;
+    path.push(endNode)
     while (cur) {
         path.push(cur.S);
         cur = Q.get(cur.prev);

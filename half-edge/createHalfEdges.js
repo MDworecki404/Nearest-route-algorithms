@@ -124,13 +124,8 @@ const serializeHalfEdges = () => {
     });
 
     const serializedWithNext = [];
-    let toCheck = vertexMap.size;
 
     vertexMap.forEach((edges, v) => {
-        toCheck--;
-        if (toCheck % 1000 === 0) {
-            console.log(`Processing vertices, ${toCheck} remaining`);
-        }
 
         edges.sort((a, b) => b.attributes.azimuth - a.attributes.azimuth);
 

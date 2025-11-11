@@ -8,102 +8,84 @@ const heuristic = (nodeA, nodeB) => {
     );
 };
 
-const aStar = (startNode, endNode, halfEdges) => {
-    const valid = halfEdges.filter(
-        (he) =>
-            he &&
-            he.id != null &&
-            Array.isArray(he.V) &&
-            he.V.length === 2 &&
-            he.siblingId != null
-    );
-
-    const halfEdgeMap = new Map();
-    valid.forEach((he) => halfEdgeMap.set(he.id, he));
-
-    const vertexToHalfEdges = new Map();
-    valid.forEach((he) => {
-        const key = he.V.join(",");
-        if (!vertexToHalfEdges.has(key)) vertexToHalfEdges.set(key, []);
-        vertexToHalfEdges.get(key).push(he);
+const prepareOpenSet = (graph, endNode) => {
+    const Q = new Map();
+    graph.forEach((he) => {
+        Q.set(he.id, {
+            ...he,
+            g: Infinity,
+            h: heuristic(he.V, endNode),
+            f: Infinity,
+            prev: null,
+        });
     });
+    return Q;
+};
 
-    const openSet = new Map();
+const aStar = (startNode, endNode, halfEdges) => {
+    const openSet = prepareOpenSet(halfEdges, endNode);
     const closedSet = new Map();
 
-    valid.forEach((he) => {
-        const key = he.V.join(",");
-        if (!openSet.has(key)) {
-            openSet.set(key, {
-                g: Infinity,
-                h: heuristic(he.V, endNode),
-                f: Infinity,
-                prev: null,
-                halfEdges: vertexToHalfEdges.get(key) || [],
-            });
-        }
+    const startHes = Array.from(openSet.values()).filter(
+        (he) => he.V[0] === startNode[0] && he.V[1] === startNode[1]
+    );
+
+    if (startHes.length === 0) {
+        return [];
+    }
+
+    startHes.forEach((he) => {
+        openSet.get(he.id).g = 0;
+        openSet.get(he.id).f = openSet.get(he.id).h;
     });
 
-    const startKey = startNode.join(",");
-    const endKey = endNode.join(",");
-
-    openSet.get(startKey).g = 0;
-    openSet.get(startKey).f = openSet.get(startKey).h;
-
     while (openSet.size > 0) {
-        let lowestFKey = null;
-        let lowestFValue = Infinity;
+        let lowestFHe = null
 
-        openSet.forEach((value, key) => {
-            if (value.f < lowestFValue) {
-                lowestFValue = value.f;
-                lowestFKey = key;
+        for (const he of openSet.values()) {
+            if (!closedSet.has(he.id)) {
+                if (!lowestFHe || he.f < lowestFHe.f) {
+                    lowestFHe = he;
+                }
             }
-        });
-
-        if (lowestFKey === null || lowestFValue === Infinity) {
-            return null;
         }
+        if (!lowestFHe) break;
 
-        if (lowestFKey === endNode.join(",")) {
+        if (lowestFHe.V[0] === endNode[0] && lowestFHe.V[1] === endNode[1]) {
             let path = [];
-            let currentKey = lowestFKey;
-            while (currentKey) {
-                path.unshift(currentKey.split(",").map(Number));
-                const node =
-                    closedSet.get(currentKey) || openSet.get(currentKey);
-                if (!node || !node.prevKey) break;
-                currentKey = node.prevKey;
+            let currentHe = lowestFHe;
+            while (currentHe) {
+                path.unshift(currentHe.V);
+                if (!currentHe.prev) break;
+                currentHe =
+                    closedSet.get(currentHe.prev) ||
+                    openSet.get(currentHe.prev);
             }
-            path.unshift(startNode);
             return path;
         }
 
-        const currentNode = openSet.get(lowestFKey);
-        openSet.delete(lowestFKey);
-        closedSet.set(lowestFKey, {
-            ...currentNode,
-            prevKey: currentNode.prevKey,
+        closedSet.set(lowestFHe.id, {
+            ...lowestFHe,
+            prev: lowestFHe.prev,
         });
-        currentNode.halfEdges.forEach((he) => {
-            const neighbor = halfEdgeMap.get(he.siblingId);
-            if (!neighbor) return;
-            const neighborKey = neighbor.V.join(",");
-            if (he.twoDirectional !== true) {
-                if (!(he.from === he.id && he.to === neighbor.id)) {
-                    return;
-                }
+
+        const sibling = openSet.get(lowestFHe.attributes.siblingID);
+
+        if (!sibling) continue;
+
+        let nxt = sibling
+
+        while (true) {
+            let tentativeGScore = lowestFHe.g + nxt.attributes.distance;
+            if (tentativeGScore < nxt.g) {
+                nxt.g = tentativeGScore;
+                nxt.f = nxt.g + nxt.h;
+                nxt.prev = lowestFHe.id;
             }
-            const neighborNode = openSet.get(neighborKey);
-            if (!neighborNode) return;
-            if (closedSet.has(neighborKey)) return;
-            let tentativeGScore = currentNode.g + he.distanceToSibling;
-            if (tentativeGScore < neighborNode.g) {
-                neighborNode.g = tentativeGScore;
-                neighborNode.f = neighborNode.g + neighborNode.h;
-                neighborNode.prevKey = lowestFKey;
-            }
-        });
+            if (nxt.N === sibling.id) break;
+            nxt = openSet.get(nxt.N);
+        }
+
     }
 };
 

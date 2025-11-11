@@ -60,9 +60,12 @@ const aStar = (startNode, endNode, graph) => {
         currentNode.edges.forEach((edge) => {
             const neighborKey = [edge[0], edge[1]].join(",");
             const neighborNode = openSet.get(neighborKey);
+
             if (!neighborNode) return;
             if (closedSet.has(neighborKey)) return;
+
             let tentativeGScore = currentNode.g + edge[2];
+
             if (tentativeGScore < neighborNode.g) {
                 neighborNode.g = tentativeGScore;
                 neighborNode.f = neighborNode.g + neighborNode.h;
